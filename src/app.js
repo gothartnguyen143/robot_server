@@ -56,31 +56,55 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CORS
-app.use(cors({
+const corsOptions = {
   origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps or curl requests)
+    // Allow requests with no origin (like mobile apps, curl, or Postman)
     if (!origin) return callback(null, true);
 
-    const allowedOrigins = [
-      'http://localhost:3000',
-      'http://localhost:5173',
-      'http://localhost:9999',
-      'https://robot.b6-team.site',
-      'https://b6-team.site',
-      'http://160.25.81.154:9000',
-      'http://160.25.81.154:9999'
-    ];
+    // In production, only allow specific domains
+    if (process.env.NODE_ENV === 'production') {
+      const allowedOrigins = [
+        'https://robot.b6-team.site',
+        'https://b6-team.site',
+        'http://160.25.81.154:9000',
+        'http://160.25.81.154:9999'
+      ];
 
-    if (allowedOrigins.indexOf(origin) !== -1) {
-      callback(null, true);
+      if (allowedOrigins.indexOf(origin) !== -1) {
+        callback(null, true);
+      } else {
+        callback(new Error('Not allowed by CORS'));
+      }
     } else {
-      callback(new Error('Not allowed by CORS'));
+      // In development, allow all localhost origins and common dev ports
+      const allowedOrigins = [
+        'http://localhost:3000',
+        'http://localhost:5173',
+        'http://localhost:9999',
+        'http://127.0.0.1:3000',
+        'http://127.0.0.1:5173',
+        'http://127.0.0.1:9999',
+        'http://192.168.65.1:3000',
+        'http://192.168.65.1:5173',
+        'http://192.168.65.1:9999',
+        'http://160.25.81.154:9000',
+        'http://160.25.81.154:9999'
+      ];
+
+      if (allowedOrigins.indexOf(origin) !== -1 || origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
+        callback(null, true);
+      } else {
+        console.log('CORS blocked origin:', origin);
+        callback(null, true); // Allow for development
+      }
     }
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
-}));
+};
+
+app.use(cors(corsOptions));
 
 // Compression
 app.use(compression());

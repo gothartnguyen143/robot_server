@@ -1,6 +1,6 @@
 # Use Node.js 18 Alpine for smaller image size
 FROM --platform=linux/amd64 node:18-alpine
-
+# FROM node:18-alpine 
 # Set working directory
 WORKDIR /app
 
