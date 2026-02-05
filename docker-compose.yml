@@ -18,8 +18,8 @@ services:
       - RATE_LIMIT_WINDOW_MS=900000
       - RATE_LIMIT_MAX_REQUESTS=100
       - LOG_LEVEL=info
-    env_file:
-      - ./.env
+    # env_file:
+    #   - ./.env
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
