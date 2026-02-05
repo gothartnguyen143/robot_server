@@ -24,9 +24,10 @@ RUN addgroup -g 1001 -S nodejs && \
 # Copy source code
 COPY --chown=nodejs:nodejs . .
 
-# Create uploads directory and set permissions
-RUN mkdir -p uploads && \
-    chown -R nodejs:nodejs uploads
+# Create uploads and logs directories and set permissions
+RUN mkdir -p uploads logs && \
+    chown -R nodejs:nodejs uploads logs && \
+    chmod -R 755 uploads logs
 
 # Switch to non-root user
 USER nodejs
@@ -39,10 +40,10 @@ ENV NODE_ENV=production
 ENV PORT=7968
 
 # Health check
-HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
-    CMD node -e "require('http').get('http://localhost:7968/health', (res) => { \
-        process.exit(res.statusCode === 200 ? 0 : 1) \
-    }).on('error', () => process.exit(1))"
+# HEALTHCHECK --interval=30s --timeout=3s --start-period=5s --retries=3 \
+#     CMD node -e "require('http').get('http://localhost:7968/health', (res) => { \
+#         process.exit(res.statusCode === 200 ? 0 : 1) \
+#     }).on('error', () => process.exit(1))"
 
 # Start the application
 CMD ["npm", "start"]
