@@ -2,6 +2,10 @@ version: '3.8'
 
 services:
   robot-server:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      platform: linux/amd64
     image: robot-server:latest
     container_name: robot-server
     ports:
@@ -15,7 +19,7 @@ services:
       - RATE_LIMIT_MAX_REQUESTS=100
       - LOG_LEVEL=info
     env_file:
-      - .env
+      - ./.env
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
