@@ -89,11 +89,13 @@ const corsOptions = {
       const allowedOrigins = [
         'https://robot.b6-team.site',
         'https://b6-team.site',
+        'https://b6-team.site:9999',
         'http://160.25.81.154:9000',
         'http://160.25.81.154:9999'
       ];
 
-      if (allowedOrigins.indexOf(origin) !== -1) {
+      // Allow any subdomain of b6-team.site
+      if (origin && (origin.includes('b6-team.site') || allowedOrigins.indexOf(origin) !== -1)) {
         callback(null, true);
       } else {
         callback(new Error('Not allowed by CORS'));
