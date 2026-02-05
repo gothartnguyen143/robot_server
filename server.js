@@ -1,10 +1,10 @@
-require('dotenv').config();
 const app = require('./src/app');
 const http = require('http');
 const socketIo = require('socket.io');
 const imageSocketHandler = require('./src/sockets/imageSocket');
 
 const PORT = process.env.PORT || 3000;
+const HOST = process.env.HOST || '0.0.0.0';
 
 // Create HTTP server
 const server = http.createServer(app);
@@ -25,8 +25,8 @@ imageSocketHandler(io);
 const imageController = require('./src/controllers/imageController');
 imageController.setSocketHandler(imageSocketHandler);
 
-server.listen(PORT, () => {
-  const host = process.env.HOST || 'localhost';
+server.listen(PORT, HOST, () => {
+  const host = process.env.PUBLIC_HOST || process.env.HOST || 'localhost';
   const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
   console.log(`🚀 Robot Server running on ${host}:${PORT}`);
   console.log(`📁 Upload directory: ${process.env.UPLOAD_DIR || './uploads'}`);

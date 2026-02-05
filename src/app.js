@@ -15,6 +15,60 @@ const imageRoutes = require('./routes/images');
 const { errorHandler } = require('./middleware/errorHandler');
 const notFound = require('./middleware/notFound');
 
+const DEFAULT_PROD_ORIGINS = [
+  'https://robot.b6-team.site',
+  'http://robot.b6-team.site',
+  'https://b6-team.site',
+  'http://b6-team.site',
+  'https://b6-team.site:9999',
+  'http://b6-team.site:9999',
+  'http://160.25.81.154:7968',
+  'http://160.25.81.154:9000',
+  'http://160.25.81.154:9999'
+];
+
+const DEFAULT_DEV_ORIGINS = [
+  'http://localhost:3000',
+  'http://localhost:5173',
+  'http://localhost:7968',
+  'http://localhost:9999',
+  'http://127.0.0.1:3000',
+  'http://127.0.0.1:5173',
+  'http://127.0.0.1:7968',
+  'http://127.0.0.1:9999',
+  'http://192.168.65.1:3000',
+  'http://192.168.65.1:5173',
+  'http://192.168.65.1:9999',
+  'http://160.25.81.154:9000',
+  'http://160.25.81.154:9999'
+];
+
+const parseOrigins = (value = '') =>
+  value
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean);
+
+const allowAllOrigins = (process.env.CORS_ORIGINS || '').trim() === '*';
+const resolvedOrigins = !allowAllOrigins && process.env.CORS_ORIGINS
+  ? parseOrigins(process.env.CORS_ORIGINS)
+  : (process.env.NODE_ENV === 'production' ? DEFAULT_PROD_ORIGINS : DEFAULT_DEV_ORIGINS);
+
+const isLocalhostOrigin = (origin = '') =>
+  /^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?$/i.test(origin);
+
+const isAllowedOrigin = (origin) => {
+  if (!origin || allowAllOrigins) {
+    return true;
+  }
+
+  if (isLocalhostOrigin(origin) || origin.includes('b6-team.site')) {
+    return true;
+  }
+
+  return resolvedOrigins.includes(origin);
+};
+
 const app = express();
 
 console.log('Initializing Express app...');
@@ -80,53 +134,13 @@ app.use(limiter);
 
 // CORS
 const corsOptions = {
-  origin: function (origin, callback) {
-    // Allow requests with no origin (like mobile apps, curl, or Postman)
-    if (!origin) return callback(null, true);
-
-    // In production, only allow specific domains
-    if (process.env.NODE_ENV === 'production') {
-      const allowedOrigins = [
-        'https://robot.b6-team.site',
-        'http://robot.b6-team.site',
-        'https://b6-team.site',
-        'http://b6-team.site',
-        'https://b6-team.site:9999',
-        'http://b6-team.site:9999',
-        'http://160.25.81.154:7968',
-        'http://160.25.81.154:9000',
-        'http://160.25.81.154:9999'
-      ];
-
-      // Allow any subdomain of b6-team.site
-      if (origin && (origin.includes('b6-team.site') || allowedOrigins.indexOf(origin) !== -1)) {
-        callback(null, true);
-      } else {
-        callback(new Error('Not allowed by CORS'));
-      }
-    } else {
-      // In development, allow all localhost origins and common dev ports
-      const allowedOrigins = [
-        'http://localhost:3000',
-        'http://localhost:5173',
-        'http://localhost:9999',
-        'http://127.0.0.1:3000',
-        'http://127.0.0.1:5173',
-        'http://127.0.0.1:9999',
-        'http://192.168.65.1:3000',
-        'http://192.168.65.1:5173',
-        'http://192.168.65.1:9999',
-        'http://160.25.81.154:9000',
-        'http://160.25.81.154:9999'
-      ];
-
-      if (allowedOrigins.indexOf(origin) !== -1 || origin.match(/^https?:\/\/localhost(:\d+)?$/)) {
-        callback(null, true);
-      } else {
-        console.log('CORS blocked origin:', origin);
-        callback(null, true); // Allow for development
-      }
+  origin(origin, callback) {
+    if (isAllowedOrigin(origin)) {
+      return callback(null, true);
     }
+
+    console.log('CORS blocked origin:', origin);
+    return callback(new Error('Not allowed by CORS'));
   },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
