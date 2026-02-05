@@ -72,7 +72,7 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
   swaggerOptions: {
     persistAuthorization: false,
-    url: `http://localhost:${process.env.PORT || 3000}/api-docs.json`,
+    url: `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}/api-docs.json`,
     tryItOutEnabled: false
   },
   customCss: `

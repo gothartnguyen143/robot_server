@@ -13,13 +13,16 @@ services:
     environment:
       - NODE_ENV=production
       - PORT=7968
+      - HOST=0.0.0.0
       - UPLOAD_DIR=./uploads
       - CORS_ORIGINS=*
       - RATE_LIMIT_WINDOW_MS=900000
       - RATE_LIMIT_MAX_REQUESTS=100
       - LOG_LEVEL=info
-    env_file:
-      - .env
+      - WS_PATH=/socket.io
+      - WS_CORS_ORIGINS=*
+    # env_file:
+    #   - .env
     volumes:
       - ./uploads:/app/uploads
       - ./logs:/app/logs
