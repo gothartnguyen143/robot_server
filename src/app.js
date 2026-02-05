@@ -67,8 +67,26 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 // Static files
 app.use('/static', express.static(path.join(__dirname, '../uploads')));
 
-// Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+// Swagger UI - Disabled for production
+// app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
+//   explorer: true,
+//   swaggerOptions: {
+//     persistAuthorization: false,
+//     url: `http://localhost:${process.env.PORT || 3000}/api-docs.json`,
+//     tryItOutEnabled: false
+//   },
+//   customCss: `
+//     .swagger-ui .topbar { display: none }
+//     .swagger-ui .auth-wrapper { display: none }
+//     .swagger-ui .scheme-container { display: none }
+//   `,
+//   customSiteTitle: "Robot Server API Documentation"
+// }));
+
+// Simple API documentation endpoint
+app.get('/api-docs', (req, res) => {
+  res.json(swaggerSpec);
+});
 
 // Health check
 app.get('/health', (req, res) => {
