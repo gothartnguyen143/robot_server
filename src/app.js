@@ -33,6 +33,10 @@ const swaggerOptions = {
         url: `http://localhost:${process.env.PORT || 3000}`,
         description: 'Development server',
       },
+      {
+        url: `https://robot.b6-team.site`,
+        description: 'Production server',
+      },
     ],
   },
   apis: ['./src/routes/*.js'], // Path to the API docs
@@ -52,7 +56,31 @@ const limiter = rateLimit({
 app.use(limiter);
 
 // CORS
-app.use(cors());
+app.use(cors({
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+
+    const allowedOrigins = [
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://localhost:9999',
+      'https://robot.b6-team.site',
+      'https://b6-team.site',
+      'http://160.25.81.154:9000',
+      'http://160.25.81.154:9999'
+    ];
+
+    if (allowedOrigins.indexOf(origin) !== -1) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization', 'Accept', 'Origin', 'X-Requested-With']
+}));
 
 // Compression
 app.use(compression());
@@ -72,7 +100,9 @@ app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
   explorer: true,
   swaggerOptions: {
     persistAuthorization: false,
-    url: `${process.env.NODE_ENV === 'production' ? 'https' : 'http'}://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}/api-docs.json`,
+    url: process.env.NODE_ENV === 'production'
+      ? 'https://robot.b6-team.site/api-docs.json'
+      : `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}/api-docs.json`,
     tryItOutEnabled: false
   },
   customCss: `
