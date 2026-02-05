@@ -88,8 +88,12 @@ const corsOptions = {
     if (process.env.NODE_ENV === 'production') {
       const allowedOrigins = [
         'https://robot.b6-team.site',
+        'http://robot.b6-team.site',
         'https://b6-team.site',
+        'http://b6-team.site',
         'https://b6-team.site:9999',
+        'http://b6-team.site:9999',
+        'http://160.25.81.154:7968',
         'http://160.25.81.154:9000',
         'http://160.25.81.154:9999'
       ];
