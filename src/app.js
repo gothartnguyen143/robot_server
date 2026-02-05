@@ -60,7 +60,7 @@ app.use(helmet({
       scriptSrc: ["'self'", "'unsafe-inline'"],
       styleSrc: ["'self'", "'unsafe-inline'"],
       connectSrc: ["'self'"],
-      imgSrc: ["'self'", "data:", "https:"],
+      imgSrc: ["'self'", "data:", "blob:", "https:"],
       fontSrc: ["'self'"],
       objectSrc: ["'none'"],
       mediaSrc: ["'self'"],
@@ -140,7 +140,7 @@ app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 
 // Static files
-app.use('/static', express.static(path.join(__dirname, '../uploads')));
+app.use('/static', cors(corsOptions), express.static(path.join(__dirname, '../uploads')));
 
 // Swagger UI
 app.use('/api-docs', swaggerUi.serve, (req, res, next) => {
@@ -150,17 +150,12 @@ app.use('/api-docs', swaggerUi.serve, (req, res, next) => {
   swaggerUi.setup(swaggerSpec, {
     explorer: true,
     swaggerOptions: {
-      persistAuthorization: false,
+      persistAuthorization: true,
       url: process.env.NODE_ENV === 'production'
         ? `https://${req.headers.host}/api-docs.json`
         : `http://${req.headers.host || 'localhost'}:${process.env.PORT || 3000}/api-docs.json`,
-      tryItOutEnabled: false
+      tryItOutEnabled: true
     },
-    customCss: `
-      .swagger-ui .topbar { display: none }
-      .swagger-ui .auth-wrapper { display: none }
-      .swagger-ui .scheme-container { display: none }
-    `,
     customSiteTitle: "Robot Server API Documentation"
   })(req, res, next);
 });
