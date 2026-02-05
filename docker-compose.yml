@@ -1,0 +1,40 @@
+version: '3.8'
+
+services:
+  robot-server:
+    image: robot-server:latest
+    container_name: robot-server
+    ports:
+      - "7968:7968"
+    environment:
+      - NODE_ENV=production
+      - PORT=7968
+      - UPLOAD_DIR=./uploads
+      - CORS_ORIGINS=*
+      - RATE_LIMIT_WINDOW_MS=900000
+      - RATE_LIMIT_MAX_REQUESTS=100
+      - LOG_LEVEL=info
+    env_file:
+      - .env
+    volumes:
+      - ./uploads:/app/uploads
+      - ./logs:/app/logs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:7968/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    networks:
+      - robot-network
+
+networks:
+  robot-network:
+    driver: bridge
+
+volumes:
+  uploads:
+    driver: local
+  logs:
+    driver: local

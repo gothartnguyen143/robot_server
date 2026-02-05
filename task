@@ -1,0 +1,26 @@
+
+I ) 1 cái api upload ảnh lên trả về 1 mã hash cho client. (mã đó định danh cho cái ảnh này). (mã hash được ánh xạ với img tải lên và lưu img này trên 1 thư mục tạm (có thể xóa thứ mục này)
++ Nó có dạng : api/upload
++ Mục đích: upload ảnh lên server và lưu vào thư mục tạm trả về mã hash định danh cho ảnh đó. chú ý mã hash là duy nhất .
+
+
+II) 1 api để lấy tất cả những mã hash có trên server.
++ Nó có dạng: api/list-hash-images
+
+III)  1 api /process/{mã hash}
++ Nó có dạng: api/process/{mã hash}
++ Mục đích hiển thị ảnh tương ứng với mã hash.
+
+IV) 1 api /process/{mã hash}/result
++ Nó có dạng: api/process/{mã hash}/result
++ Mục đích :đẩy kết quả lên cho mã hash và xoá images trong folder tạm.
+
+
+V) 1 api nữa có dạng /get/{mã hash}
++ Nó có dạng: api/get/{mã hash}
++ Mục đích: trả về result của mã hash, nếu mà null thì cứ trả về null,nếu khác null thì trả về result (nằm trong mã), rồi xóa mã hash khỏi map
+
+*CHÚ Ý:
+- tổ chức dự liệu là một Map có dạng (Map){"mã hash" : {src_path_img, result:null}} trong đó : 
+- src_path_img: đường dẫn ảnh nằm trên server đã được upload lên. 
+- đường dẫn trong folder tạm được cấu hình trong file .env với biến UPLOAD_DIR .

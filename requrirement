@@ -1,0 +1,6 @@
+Front_End của tôi được truy cập bởi nhiều người . tôi muốn khi vào Page RobotProcessing thì hãy : 
+- Những ai truy cập đến trang Robot_Processing thì Thiết lập Websocket với Server ( Có thể có nhiều WebSocket).
+- Trong trang này hiển thì hình ảnh ( Image Display ) hiển thị ảnh load từ server ( Thông qua Socket cho nhanh) và mỗi ảnh có nơi nhập input result để gửi lên lại server , có cả nút prev và next hình ảnh kế tiếp.
+CHÚ Ý LÀ:
+- NẾU MỘT ẢNH ĐÃ ĐƯỢC ĐƯỢC XỬ LÝ RESULT ( ĐÃ GỬI LÊN SERVER) THÌ ẢNH ĐÓ TỰ ĐỘNG NEXT Ở USER KHÁC.
+- ĐẢM BẢO MỖI USER ( KHI ĐÃ TRUY CẬP TRANG HAY KẾT NỐI WEBSOCKET ) THÌ NHẬN ĐƯỢC ẢNH KHÁC NHAU 
