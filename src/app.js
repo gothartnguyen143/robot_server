@@ -20,29 +20,37 @@ const app = express();
 console.log('Initializing Express app...');
 
 // Swagger configuration
-const swaggerOptions = {
-  definition: {
-    openapi: '3.0.0',
-    info: {
-      title: 'Robot Server API',
-      version: '1.0.0',
-      description: 'API for image processing with hash-based storage',
-    },
-    servers: [
-      {
-        url: `http://localhost:${process.env.PORT || 3000}`,
-        description: 'Development server',
-      },
-      {
-        url: `https://robot.b6-team.site`,
-        description: 'Production server',
-      },
-    ],
-  },
-  apis: ['./src/routes/*.js'], // Path to the API docs
-};
+const getSwaggerOptions = (req) => {
+  const host = req?.headers?.host || process.env.HOST || 'localhost';
+  const protocol = process.env.NODE_ENV === 'production' ? 'https' : 'http';
+  const port = process.env.PORT || 3000;
+  
+  // Determine the current server URL
+  let currentServerUrl;
+  if (process.env.NODE_ENV === 'production') {
+    currentServerUrl = `https://${host}`;
+  } else {
+    currentServerUrl = `${protocol}://${host}${host.includes(':') ? '' : `:${port}`}`;
+  }
 
-const swaggerSpec = swaggerJsdoc(swaggerOptions);
+  return {
+    definition: {
+      openapi: '3.0.0',
+      info: {
+        title: 'Robot Server API',
+        version: '1.0.0',
+        description: 'API for image processing with hash-based storage',
+      },
+      servers: [
+        {
+          url: currentServerUrl,
+          description: process.env.NODE_ENV === 'production' ? 'Production server' : 'Development server',
+        },
+      ],
+    },
+    apis: ['./src/routes/*.js'], // Path to the API docs
+  };
+};
 
 // Security middleware
 app.use(helmet());
@@ -120,25 +128,32 @@ app.use(express.urlencoded({ extended: true, limit: '10mb' }));
 app.use('/static', express.static(path.join(__dirname, '../uploads')));
 
 // Swagger UI
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec, {
-  explorer: true,
-  swaggerOptions: {
-    persistAuthorization: false,
-    url: process.env.NODE_ENV === 'production'
-      ? 'https://robot.b6-team.site/api-docs.json'
-      : `http://${process.env.HOST || 'localhost'}:${process.env.PORT || 3000}/api-docs.json`,
-    tryItOutEnabled: false
-  },
-  customCss: `
-    .swagger-ui .topbar { display: none }
-    .swagger-ui .auth-wrapper { display: none }
-    .swagger-ui .scheme-container { display: none }
-  `,
-  customSiteTitle: "Robot Server API Documentation"
-}));
+app.use('/api-docs', swaggerUi.serve, (req, res, next) => {
+  const swaggerOptions = getSwaggerOptions(req);
+  const swaggerSpec = swaggerJsdoc(swaggerOptions);
+  
+  swaggerUi.setup(swaggerSpec, {
+    explorer: true,
+    swaggerOptions: {
+      persistAuthorization: false,
+      url: process.env.NODE_ENV === 'production'
+        ? `https://${req.headers.host}/api-docs.json`
+        : `http://${req.headers.host || 'localhost'}:${process.env.PORT || 3000}/api-docs.json`,
+      tryItOutEnabled: false
+    },
+    customCss: `
+      .swagger-ui .topbar { display: none }
+      .swagger-ui .auth-wrapper { display: none }
+      .swagger-ui .scheme-container { display: none }
+    `,
+    customSiteTitle: "Robot Server API Documentation"
+  })(req, res, next);
+});
 
 // Simple API documentation endpoint
 app.get('/api-docs', (req, res) => {
+  const swaggerOptions = getSwaggerOptions(req);
+  const swaggerSpec = swaggerJsdoc(swaggerOptions);
   res.json(swaggerSpec);
 });
 
