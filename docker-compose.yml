@@ -5,7 +5,7 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      platform: linux/amd64
+      # platform: linux/amd64
     image: robot-server:latest
     container_name: robot-server
     ports:
