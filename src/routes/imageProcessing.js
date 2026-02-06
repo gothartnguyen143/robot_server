@@ -146,17 +146,10 @@ router.post('/process/:hash/result', express.json(), async (req, res) => {
     if (btn_1 !== undefined) imageData.btn_1 = btn_1;
     if (btn_2 !== undefined) imageData.btn_2 = btn_2;
 
-    // Delete temporary image file
-    try {
-      await fs.remove(imageData.src_path_img);
-    } catch (deleteError) {
-      console.error('Failed to delete temp image:', deleteError);
-      // Continue even if delete fails
-    }
-
+    // Không xóa ảnh tạm ở đây
     res.json({
       success: true,
-      message: 'Result stored and temporary image deleted'
+      message: 'Result stored successfully'
     });
 
   } catch (error) {
@@ -174,11 +167,19 @@ router.get('/get/:hash', (req, res) => {
       return res.status(404).json({ error: 'Hash not found' });
     }
 
-    const imageData = imageMap.get(hash);
-    const { result, btn_1, btn_2 } = imageData;
 
-    // Delete hash from map
+    const imageData = imageMap.get(hash);
+    const { result, btn_1, btn_2, src_path_img } = imageData;
+
+    // Xóa hash khỏi map
     imageMap.delete(hash);
+
+    // Xóa file ảnh tạm nếu có
+    if (src_path_img) {
+      fs.remove(src_path_img).catch((err) => {
+        console.error('Failed to delete temp image:', err);
+      });
+    }
 
     res.json({
       success: true,
