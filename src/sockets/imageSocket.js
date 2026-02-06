@@ -1,6 +1,20 @@
 const fs = require('fs');
-const path = require('path');
+// const path = require('path'); // Đã được require ở đầu file, không cần khai báo lại
 const crypto = require('crypto');
+const path = require('path');
+const fsExtra = require('fs-extra');
+const DATA_PATH = path.join(__dirname, '../../data/images.json');
+async function readImageData() {
+  try {
+    const data = await fsExtra.readFile(DATA_PATH, 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    return {};
+  }
+}
+async function writeImageData(data) {
+  await fsExtra.writeFile(DATA_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
 
 // In-memory storage for image processing state
 // In production, this should be stored in a database
@@ -9,12 +23,43 @@ let userAssignments = {}; // socketId -> currentHash
 let userHistory = {}; // socketId -> array of hashes processed by this user (in order)
 let userQueues = {}; // socketId -> array of hashes queued for this user
 let pendingImages = []; // Queue of hashes waiting to be processed
+let io; // To be set later
+
+// Function to add new image
+async function addNewImage(hash) {
+  if (!imageStates[hash]) {
+    imageStates[hash] = { status: 'pending', result: null, assignedTo: null, nextedBy: null };
+    pendingImages.push(hash);
+
+    // Also add to JSON file if not present
+    const imageData = await readImageData();
+    if (!imageData[hash]) {
+      // Assume the file path is in uploads with .jpg extension (can be adjusted)
+      const uploadDir = path.join(__dirname, '../../uploads');
+      const filePath = path.join(uploadDir, `${hash}.jpg`);
+      imageData[hash] = {
+        src_path_img: filePath,
+        result: null,
+        btn_1: null,
+        btn_2: null
+      };
+      await writeImageData(imageData);
+    }
+
+    // Notify all connected clients that new image is available
+    if (io) io.emit('new-image-available');
+
+    console.log(`New image added: ${hash}`);
+  }
+}
 
 // Load existing images from uploads directory
-function loadExistingImages() {
+async function loadExistingImages() {
   const uploadDir = path.join(__dirname, '../../uploads');
   if (fs.existsSync(uploadDir)) {
     const files = fs.readdirSync(uploadDir);
+    const imageData = await readImageData();
+    let updated = false;
     files.forEach(file => {
       const ext = path.extname(file).toLowerCase();
       if (['.png', '.jpg', '.jpeg', '.gif', '.bmp'].includes(ext)) {
@@ -23,8 +68,21 @@ function loadExistingImages() {
           imageStates[hash] = { status: 'pending', result: null, assignedTo: null, nextedBy: null };
           pendingImages.push(hash);
         }
+        // Also ensure it's in the JSON file
+        if (!imageData[hash]) {
+          imageData[hash] = {
+            src_path_img: path.join(uploadDir, file),
+            result: null,
+            btn_1: null,
+            btn_2: null
+          };
+          updated = true;
+        }
       }
     });
+    if (updated) {
+      await writeImageData(imageData);
+    }
   }
   console.log(`Loaded ${pendingImages.length} pending images`);
 }
@@ -94,7 +152,8 @@ function deleteImageFile(hash) {
   }
 }
 
-function imageSocketHandler(io) {
+function imageSocketHandler(ioParam) {
+  io = ioParam;
   loadExistingImages();
 
   io.on('connection', (socket) => {
@@ -127,6 +186,7 @@ function imageSocketHandler(io) {
       const { hash, result, btn_1, btn_2 } = data;
       console.log(`User ${socket.id} submitted result for ${hash}: ${result}, btn_1: ${JSON.stringify(btn_1)}, btn_2: ${JSON.stringify(btn_2)}`);
 
+
       if (imageStates[hash] && imageStates[hash].assignedTo === socket.id) {
         // Update image state
         imageStates[hash].status = 'completed';
@@ -134,11 +194,20 @@ function imageSocketHandler(io) {
         imageStates[hash].btn_1 = btn_1;
         imageStates[hash].btn_2 = btn_2;
 
+        // Đồng bộ dữ liệu với file JSON
+        (async () => {
+          const imageData = await readImageData();
+          if (imageData[hash]) {
+            if (result !== undefined) imageData[hash].result = result;
+            if (btn_1 !== undefined) imageData[hash].btn_1 = btn_1;
+            if (btn_2 !== undefined) imageData[hash].btn_2 = btn_2;
+            await writeImageData(imageData);
+          }
+        })();
+
         // Remove from user assignment
         delete userAssignments[socket.id];
 
-        // Delete the image file from disk
-        deleteImageFile(hash);
 
         // Remove from pending images if it exists
         const pendingIndex = pendingImages.indexOf(hash);
@@ -414,21 +483,12 @@ function imageSocketHandler(io) {
     }
   }
 
-  // Function to add new image (called from upload API)
-  function addNewImage(hash) {
-    if (!imageStates[hash]) {
-      imageStates[hash] = { status: 'pending', result: null, assignedTo: null, nextedBy: null };
-      pendingImages.push(hash);
-
-      // Notify all connected clients that new image is available
-      io.emit('new-image-available');
-
-      console.log(`New image added: ${hash}`);
-    }
-  }
+  // Load existing images on startup
+  loadExistingImages();
 
   // Export function to add new images
   imageSocketHandler.addNewImage = addNewImage;
 }
 
 module.exports = imageSocketHandler;
+module.exports.addNewImage = addNewImage;

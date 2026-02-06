@@ -1,7 +1,22 @@
 const crypto = require('crypto');
 const fs = require('fs').promises;
+const fsExtra = require('fs-extra');
 const path = require('path');
 const ResponseHelper = require('../utils/responseHelper');
+
+// File-based storage
+const DATA_PATH = path.join(__dirname, '../../data/images.json');
+async function readImageData() {
+  try {
+    const data = await fsExtra.readFile(DATA_PATH, 'utf-8');
+    return JSON.parse(data);
+  } catch (e) {
+    return {};
+  }
+}
+async function writeImageData(data) {
+  await fsExtra.writeFile(DATA_PATH, JSON.stringify(data, null, 2), 'utf-8');
+}
 
 // Import socket handler to notify new images
 let imageSocketHandler = null;
@@ -68,8 +83,9 @@ const imageController = {
   // II) Get all hashes
   listHashImages: async (req, res) => {
     try {
-      const hashes = Array.from(imageMap.keys());
-      res.json(ResponseHelper.success({ hashes }, "Hashes retrieved successfully"));
+      const imageData = await readImageData();
+      const hashes = Object.keys(imageData);
+      res.json(ResponseHelper.success({ hashes, count: hashes.length }, "Hashes retrieved successfully"));
     } catch (error) {
       console.error('List hashes error:', error);
       res.status(500).json(ResponseHelper.internalError("Failed to get hashes"));
@@ -126,22 +142,36 @@ const imageController = {
     }
   },
 
-  // V) Get result and remove hash from map
+  // V) Get result and remove hash from map and file
   getResult: async (req, res) => {
     try {
       const { hash } = req.params;
 
-      if (!imageMap.has(hash)) {
+      // Check in file first
+      const imageDataFile = await readImageData();
+      if (!imageDataFile[hash]) {
         return res.status(404).json(ResponseHelper.notFound("Hash"));
       }
 
-      const imageData = imageMap.get(hash);
-      const { result, btn_1, btn_2 } = imageData;
+      const { result, btn_1, btn_2, src_path_img } = imageDataFile[hash];
 
-      // Remove from map
-      imageMap.delete(hash);
+      // Remove from file
+      delete imageDataFile[hash];
+      await writeImageData(imageDataFile);
 
-      res.json(ResponseHelper.success({ result, btn_1, btn_2 }, "Result retrieved successfully"));
+      // Delete temp image file
+      if (src_path_img) {
+        fsExtra.remove(src_path_img).catch((err) => {
+          console.error('Failed to delete temp image:', err);
+        });
+      }
+
+      // Also remove from map if exists
+      if (imageMap.has(hash)) {
+        imageMap.delete(hash);
+      }
+
+      res.json(ResponseHelper.success({ hash, result, btn_1, btn_2 }, "Result retrieved and data deleted successfully"));
     } catch (error) {
       console.error('Get result error:', error);
       res.status(500).json(ResponseHelper.internalError("Failed to get result"));
