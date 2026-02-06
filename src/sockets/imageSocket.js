@@ -6,6 +6,7 @@ const fsExtra = require('fs-extra');
 const DATA_PATH = path.join(__dirname, '../../data/images.json');
 async function readImageData() {
   try {
+    await fsExtra.ensureDir(path.dirname(DATA_PATH));
     const data = await fsExtra.readFile(DATA_PATH, 'utf-8');
     return JSON.parse(data);
   } catch (e) {
@@ -13,6 +14,7 @@ async function readImageData() {
   }
 }
 async function writeImageData(data) {
+  await fsExtra.ensureDir(path.dirname(DATA_PATH));
   await fsExtra.writeFile(DATA_PATH, JSON.stringify(data, null, 2), 'utf-8');
 }
 
