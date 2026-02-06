@@ -46,7 +46,9 @@ const imageController = {
 
       // Store in map
       imageMap.set(hash, {
-        result: null
+        result: null,
+        btn_1: null,
+        btn_2: null
       });
 
       // Notify WebSocket clients about new image
@@ -105,14 +107,17 @@ const imageController = {
   setResult: async (req, res) => {
     try {
       const { hash } = req.params;
-      const { result } = req.body;
+      const { result, btn_1, btn_2 } = req.body;
 
       if (!imageMap.has(hash)) {
         return res.status(404).json(ResponseHelper.notFound("Hash"));
       }
 
-      // Update result
-      imageMap.get(hash).result = result;
+      // Update result, btn_1, btn_2
+      const imageData = imageMap.get(hash);
+      if (result !== undefined) imageData.result = result;
+      if (btn_1 !== undefined) imageData.btn_1 = btn_1;
+      if (btn_2 !== undefined) imageData.btn_2 = btn_2;
 
       res.json(ResponseHelper.success(null, "Result set successfully"));
     } catch (error) {
@@ -131,12 +136,12 @@ const imageController = {
       }
 
       const imageData = imageMap.get(hash);
-      const result = imageData.result;
+      const { result, btn_1, btn_2 } = imageData;
 
       // Remove from map
       imageMap.delete(hash);
 
-      res.json(ResponseHelper.success({ result }, "Result retrieved successfully"));
+      res.json(ResponseHelper.success({ result, btn_1, btn_2 }, "Result retrieved successfully"));
     } catch (error) {
       console.error('Get result error:', error);
       res.status(500).json(ResponseHelper.internalError("Failed to get result"));

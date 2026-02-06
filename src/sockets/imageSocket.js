@@ -124,13 +124,15 @@ function imageSocketHandler(io) {
 
     // Handle result submission
     socket.on('submit-result', (data) => {
-      const { hash, result } = data;
-      console.log(`User ${socket.id} submitted result for ${hash}: ${result}`);
+      const { hash, result, btn_1, btn_2 } = data;
+      console.log(`User ${socket.id} submitted result for ${hash}: ${result}, btn_1: ${JSON.stringify(btn_1)}, btn_2: ${JSON.stringify(btn_2)}`);
 
       if (imageStates[hash] && imageStates[hash].assignedTo === socket.id) {
         // Update image state
         imageStates[hash].status = 'completed';
         imageStates[hash].result = result;
+        imageStates[hash].btn_1 = btn_1;
+        imageStates[hash].btn_2 = btn_2;
 
         // Remove from user assignment
         delete userAssignments[socket.id];

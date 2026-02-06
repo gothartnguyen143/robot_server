@@ -73,7 +73,9 @@ router.post('/upload', upload.single('image'), async (req, res) => {
     // Store in map
     imageMap.set(hash, {
       src_path_img: newPath,
-      result: null
+      result: null,
+      btn_1: null,
+      btn_2: null
     });
 
     res.json({
@@ -132,15 +134,17 @@ router.get('/process/:hash', (req, res) => {
 router.post('/process/:hash/result', express.json(), async (req, res) => {
   try {
     const { hash } = req.params;
-    const { result } = req.body;
+    const { result, btn_1, btn_2 } = req.body;
 
     if (!imageMap.has(hash)) {
       return res.status(404).json({ error: 'Hash not found' });
     }
 
-    // Update result in map
+    // Update result, btn_1, btn_2 in map
     const imageData = imageMap.get(hash);
-    imageData.result = result;
+    if (result !== undefined) imageData.result = result;
+    if (btn_1 !== undefined) imageData.btn_1 = btn_1;
+    if (btn_2 !== undefined) imageData.btn_2 = btn_2;
 
     // Delete temporary image file
     try {
@@ -171,14 +175,16 @@ router.get('/get/:hash', (req, res) => {
     }
 
     const imageData = imageMap.get(hash);
-    const result = imageData.result;
+    const { result, btn_1, btn_2 } = imageData;
 
     // Delete hash from map
     imageMap.delete(hash);
 
     res.json({
       success: true,
-      result: result
+      result: result,
+      btn_1: btn_1,
+      btn_2: btn_2
     });
 
   } catch (error) {
