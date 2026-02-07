@@ -266,22 +266,15 @@ function imageSocketHandler(ioParam) {
           delete userAssignments[socket.id];
           imageStates[currentHash].assignedTo = null;
         } else if (isUnprocessed) {
-          // Chỉ có 1 user và ảnh chưa xử lý, gửi lại cho user cũ
-          console.log(`Only one user connected and image ${currentHash} is unprocessed, reassigning to same user`);
-          // Không đánh dấu nextedBy, giữ nguyên assignment
-          // Gửi lại ảnh cho user (có thể refresh hoặc giữ nguyên)
-          const imageData = encodeImageToBase64(currentHash);
-          if (imageData) {
-            socket.emit('image-assigned', {
-              hash: currentHash,
-              imageData: imageData,
-              result: imageStates[currentHash].result || ''
-            });
-            console.log(`Reassigned unprocessed image ${currentHash} back to user ${socket.id}`);
-          } else {
-            socket.emit('image-error', { hash: currentHash, error: 'Failed to reload image' });
-          }
-          return; // Không assign next image
+          // Chỉ có 1 user và ảnh chưa xử lý, đưa vào cuối hàng đợi
+          console.log(`Only one user connected and image ${currentHash} is unprocessed, moving to end of queue`);
+          imageStates[currentHash].nextedBy = socket.id; // Đánh dấu user đã next image này
+          // Remove assignment from current user
+          delete userAssignments[socket.id];
+          imageStates[currentHash].assignedTo = null;
+          // Add to end of pending queue
+          pendingImages.push(currentHash);
+          console.log(`Image ${currentHash} moved to end of queue. Queue length: ${pendingImages.length}`);
         } else {
           // Chỉ có 1 user nhưng ảnh đã xử lý (có result), đánh dấu nexted và bỏ qua
           console.log(`Only one user and image ${currentHash} is processed, marking as nexted`);
@@ -356,14 +349,63 @@ function imageSocketHandler(ioParam) {
     socket.on('disconnect', () => {
       console.log(`User disconnected: ${socket.id}`);
 
-      // If user had an assignment and it's still pending, mark it as pending again
+      // If user had an assignment and it's still pending, handle reassignment
       const assignedHash = userAssignments[socket.id];
       if (assignedHash && imageStates[assignedHash]) {
         if (imageStates[assignedHash].status === 'processing') {
-          // Only mark as pending if not completed
-          imageStates[assignedHash].status = 'pending';
-          imageStates[assignedHash].assignedTo = null;
-          pendingImages.unshift(assignedHash); // Add to front of queue
+          // Check if image is unprocessed (result/btn_1/btn_2 are null)
+          const isUnprocessed = imageStates[assignedHash].result === null ||
+                               imageStates[assignedHash].btn_1 === null ||
+                               imageStates[assignedHash].btn_2 === null;
+
+          if (isUnprocessed) {
+            // Try to assign to another connected user immediately
+            const connectedSockets = Array.from(io.sockets.sockets.values());
+            const availableUsers = connectedSockets.filter(s => s.id !== socket.id && !userAssignments[s.id]);
+
+            if (availableUsers.length > 0) {
+              // Assign to first available user
+              const targetSocket = availableUsers[0];
+              console.log(`Reassigning unprocessed image ${assignedHash} from disconnected user ${socket.id} to user ${targetSocket.id}`);
+
+              imageStates[assignedHash].status = 'processing';
+              imageStates[assignedHash].assignedTo = targetSocket.id;
+              userAssignments[targetSocket.id] = assignedHash;
+
+              // Add to user history
+              if (!userHistory[targetSocket.id]) {
+                userHistory[targetSocket.id] = [];
+              }
+              userHistory[targetSocket.id].push(assignedHash);
+
+              // Send to client
+              const imageData = encodeImageToBase64(assignedHash);
+              if (imageData) {
+                targetSocket.emit('image-assigned', {
+                  hash: assignedHash,
+                  imageData: imageData,
+                  result: imageStates[assignedHash].result || ''
+                });
+                console.log(`Successfully reassigned image ${assignedHash} to user ${targetSocket.id}`);
+              } else {
+                console.error(`Failed to encode image ${assignedHash} for reassignment`);
+                // Fallback to pending queue
+                imageStates[assignedHash].status = 'pending';
+                imageStates[assignedHash].assignedTo = null;
+                pendingImages.unshift(assignedHash);
+              }
+            } else {
+              // No available users, add to front of pending queue
+              console.log(`No available users for reassignment, adding image ${assignedHash} to front of queue`);
+              imageStates[assignedHash].status = 'pending';
+              imageStates[assignedHash].assignedTo = null;
+              pendingImages.unshift(assignedHash);
+            }
+          } else {
+            // Image was processed, just clean up
+            console.log(`Disconnected user ${socket.id} had processed image ${assignedHash}, cleaning up`);
+            imageStates[assignedHash].assignedTo = null;
+          }
         }
       }
 
