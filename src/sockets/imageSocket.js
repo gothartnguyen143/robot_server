@@ -236,14 +236,51 @@ function imageSocketHandler(ioParam) {
       // Kiểm tra xem user hiện tại có image chưa submit không
       const currentHash = userAssignments[socket.id];
       if (currentHash && imageStates[currentHash] && imageStates[currentHash].status === 'processing') {
-        // Image chưa được submit, đánh dấu đã nexted và gửi cho user khác
-        console.log(`User ${socket.id} has unsubmitted image ${currentHash}, assigning to another user`);
-        imageStates[currentHash].nextedBy = socket.id; // Đánh dấu user đã next image này
-        assignSpecificImageToOtherUser(currentHash, socket.id);
+        // Image chưa được submit
+        console.log(`User ${socket.id} has unsubmitted image ${currentHash}`);
 
-        // Remove assignment from current user
-        delete userAssignments[socket.id];
-        imageStates[currentHash].assignedTo = null;
+        // Đếm số users connected (không bao gồm user hiện tại)
+        const connectedSockets = Array.from(io.sockets.sockets.values());
+        const otherUsers = connectedSockets.filter(s => s.id !== socket.id);
+
+        // Check if result is null (unprocessed)
+        const isUnprocessed = imageStates[currentHash].result === null ||
+                             imageStates[currentHash].btn_1 === null ||
+                             imageStates[currentHash].btn_2 === null;
+
+        if (otherUsers.length > 0) {
+          // Có user khác, assign cho user khác như bình thường
+          console.log(`Assigning unsubmitted image ${currentHash} to another user`);
+          imageStates[currentHash].nextedBy = socket.id; // Đánh dấu user đã next image này
+          assignSpecificImageToOtherUser(currentHash, socket.id);
+          // Remove assignment from current user
+          delete userAssignments[socket.id];
+          imageStates[currentHash].assignedTo = null;
+        } else if (isUnprocessed) {
+          // Chỉ có 1 user và ảnh chưa xử lý, gửi lại cho user cũ
+          console.log(`Only one user connected and image ${currentHash} is unprocessed, reassigning to same user`);
+          // Không đánh dấu nextedBy, giữ nguyên assignment
+          // Gửi lại ảnh cho user (có thể refresh hoặc giữ nguyên)
+          const imageData = encodeImageToBase64(currentHash);
+          if (imageData) {
+            socket.emit('image-assigned', {
+              hash: currentHash,
+              imageData: imageData,
+              result: imageStates[currentHash].result || ''
+            });
+            console.log(`Reassigned unprocessed image ${currentHash} back to user ${socket.id}`);
+          } else {
+            socket.emit('image-error', { hash: currentHash, error: 'Failed to reload image' });
+          }
+          return; // Không assign next image
+        } else {
+          // Chỉ có 1 user nhưng ảnh đã xử lý (có result), đánh dấu nexted và bỏ qua
+          console.log(`Only one user and image ${currentHash} is processed, marking as nexted`);
+          imageStates[currentHash].nextedBy = socket.id;
+          // Remove assignment from current user
+          delete userAssignments[socket.id];
+          imageStates[currentHash].assignedTo = null;
+        }
       }
 
       // Assign next image to this user (check queue first)
@@ -448,41 +485,77 @@ function imageSocketHandler(ioParam) {
     }
 
     if (nextHash) {
-      // Mark as processing
-      imageStates[nextHash].status = 'processing';
-      imageStates[nextHash].assignedTo = socket.id;
+      // CHECK: Verify hash exists in images.json and file exists in uploads
+      (async () => {
+        const imageData = await readImageData();
+        if (!imageData[nextHash]) {
+          console.error(`Hash ${nextHash} not found in images.json, skipping assignment`);
+          // Put back to pending if not found
+          pendingImages.unshift(nextHash);
+          socket.emit('no-images-available');
+          return;
+        }
 
-      // Assign to user
-      userAssignments[socket.id] = nextHash;
+        // Check if image file exists
+        const uploadDir = path.join(__dirname, '../../uploads');
+        const extensions = ['.png', '.jpg', '.jpeg', '.gif', '.bmp'];
+        let fileExists = false;
+        for (const ext of extensions) {
+          if (fs.existsSync(path.join(uploadDir, `${nextHash}${ext}`))) {
+            fileExists = true;
+            break;
+          }
+        }
 
-      // Add to user history
-      if (!userHistory[socket.id]) {
-        userHistory[socket.id] = [];
-      }
-      userHistory[socket.id].push(nextHash);
+        if (!fileExists) {
+          console.error(`Image file for hash ${nextHash} not found in uploads folder, skipping assignment`);
+          // Put back to pending if file not found
+          pendingImages.unshift(nextHash);
+          socket.emit('no-images-available');
+          return;
+        }
 
-      // Send to client with base64 encoded binary data
-      const imageData = encodeImageToBase64(nextHash);
-      if (!imageData) {
-        console.error(`Failed to encode image ${nextHash}`);
-        socket.emit('image-error', { hash: nextHash, error: 'Failed to load image' });
-        return;
-      }
-
-      console.log(`Sending image ${nextHash} with base64 data length: ${imageData.length}`);
-
-      socket.emit('image-assigned', {
-        hash: nextHash,
-        imageData: imageData, // Send base64 string representing binary data
-        result: imageStates[nextHash].result || ''
-      });
-
-      console.log(`Assigned image ${nextHash} to user ${socket.id}`);
+        // Proceed with assignment if both checks pass
+        proceedWithAssignment(socket, nextHash);
+      })();
     } else {
       // No images available
       socket.emit('no-images-available');
       console.log(`No images available for user ${socket.id}`);
     }
+  }
+
+  async function proceedWithAssignment(socket, nextHash) {
+    // Mark as processing
+    imageStates[nextHash].status = 'processing';
+    imageStates[nextHash].assignedTo = socket.id;
+
+    // Assign to user
+    userAssignments[socket.id] = nextHash;
+
+    // Add to user history
+    if (!userHistory[socket.id]) {
+      userHistory[socket.id] = [];
+    }
+    userHistory[socket.id].push(nextHash);
+
+    // Send to client with base64 encoded binary data
+    const imageData = encodeImageToBase64(nextHash);
+    if (!imageData) {
+      console.error(`Failed to encode image ${nextHash}`);
+      socket.emit('image-error', { hash: nextHash, error: 'Failed to load image' });
+      return;
+    }
+
+    console.log(`Sending image ${nextHash} with base64 data length: ${imageData.length}`);
+
+    socket.emit('image-assigned', {
+      hash: nextHash,
+      imageData: imageData, // Send base64 string representing binary data
+      result: imageStates[nextHash].result || ''
+    });
+
+    console.log(`Assigned image ${nextHash} to user ${socket.id}`);
   }
 
   // Load existing images on startup
