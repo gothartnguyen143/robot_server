@@ -1,1 +1,11 @@
-test image content
+- cho tôi thêm api sau : /api/tags-name 
++ Thao tác CURD 
++ Mount với file tags_name.json ( cùng cấp với images.json , nhớ mount trong cả docker).
++ Cấu trúc của file json là như này : 
+    {
+        room_hash: "ABC":{
+            "tag_name1":{1,2,3,},
+            "tag_name2":{2,3,4},
+        }
+    }
+    Trong đó tag_name1 là các biến input user tự đặt 1 ,2 ,3 là mã định danh máy ( serial id ). 

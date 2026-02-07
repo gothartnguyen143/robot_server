@@ -10,6 +10,7 @@ const swaggerJsdoc = require('swagger-jsdoc');
 
 // Import routes
 const imageRoutes = require('./routes/images');
+const tagsRoutes = require('./routes/tags');
 
 // Import middleware
 const { errorHandler } = require('./middleware/errorHandler');
@@ -200,6 +201,7 @@ app.get('/health', (req, res) => {
 
 // API Routes
 app.use('/api', imageRoutes);
+app.use('/api/tags-name', tagsRoutes);
 
 // 404 handler
 app.use(notFound);
