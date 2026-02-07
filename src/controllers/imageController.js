@@ -144,7 +144,7 @@ const imageController = {
     }
   },
 
-  // V) Get result and remove hash from map and file
+  // V) Get result and remove hash from map and file (only if result, btn_1, btn_2 are not null)
   getResult: async (req, res) => {
     try {
       const { hash } = req.params;
@@ -157,23 +157,31 @@ const imageController = {
 
       const { result, btn_1, btn_2, src_path_img } = imageDataFile[hash];
 
-      // Remove from file
-      delete imageDataFile[hash];
-      await writeImageData(imageDataFile);
+      // Check if result, btn_1, btn_2 are all not null
+      const shouldDelete = result !== null && btn_1 !== null && btn_2 !== null;
 
-      // Delete temp image file
-      if (src_path_img) {
-        fsExtra.remove(src_path_img).catch((err) => {
-          console.error('Failed to delete temp image:', err);
-        });
+      if (shouldDelete) {
+        // Remove from file
+        delete imageDataFile[hash];
+        await writeImageData(imageDataFile);
+
+        // Delete temp image file
+        if (src_path_img) {
+          fsExtra.remove(src_path_img).catch((err) => {
+            console.error('Failed to delete temp image:', err);
+          });
+        }
+
+        // Also remove from map if exists
+        if (imageMap.has(hash)) {
+          imageMap.delete(hash);
+        }
+
+        res.json(ResponseHelper.success({ hash, result, btn_1, btn_2 }, "Result retrieved and data deleted successfully"));
+      } else {
+        // Do not delete, just return the data
+        res.json(ResponseHelper.success({ hash, result, btn_1, btn_2 }, "Result retrieved successfully (data not deleted - incomplete processing)"));
       }
-
-      // Also remove from map if exists
-      if (imageMap.has(hash)) {
-        imageMap.delete(hash);
-      }
-
-      res.json(ResponseHelper.success({ hash, result, btn_1, btn_2 }, "Result retrieved and data deleted successfully"));
     } catch (error) {
       console.error('Get result error:', error);
       res.status(500).json(ResponseHelper.internalError("Failed to get result"));
