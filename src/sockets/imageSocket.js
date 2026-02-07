@@ -154,16 +154,25 @@ function deleteImageFile(hash) {
   }
 }
 
+// Function to emit user count to all clients
+function emitUserCount() {
+  const connectedCount = io.sockets.sockets.size;
+  io.emit('user-count-update', { count: connectedCount });
+  console.log(`Emitted user count: ${connectedCount}`);
+}
+
 function imageSocketHandler(ioParam) {
   io = ioParam;
   loadExistingImages();
 
   io.on('connection', (socket) => {
     console.log(`User connected: ${socket.id}`);
+    emitUserCount(); // Emit user count when user connects
 
     // Send current assignment or assign new image
     socket.on('join-processing', () => {
       console.log(`User ${socket.id} joined processing`);
+      emitUserCount(); // Emit user count when user joins processing
 
       // Check if user already has an assignment
       if (userAssignments[socket.id]) {
@@ -365,6 +374,8 @@ function imageSocketHandler(ioParam) {
 
       // Clear user queue
       delete userQueues[socket.id];
+
+      emitUserCount(); // Emit user count when user disconnects
     });
   });
 
